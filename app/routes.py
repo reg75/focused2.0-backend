@@ -86,46 +86,56 @@ def delete_observation(observation_id: int, db: Session = Depends(get_db)):
 
 @router.get("/pdf/{id}")
 async def create_pdf(id: int, db: Session = Depends(get_db)):
-   # EN: download the PDF of an observation
-   # BR: Baixar observação como arquivo PDF
-   observation = db.query(Observation).filter(Observation.Observation_ID == id).first()
-   if observation is None:
-      raise HTTPException(status_code=404, detail="Observation not found")
-    
-   # EN: Generate HTML content for the PDF / BR: Gerar contenudo HTML
-   html_content = f"""
-   <html>
-      <head>
-         <style>
-               body {{ font-family: Arial, sans-serif; }}
-               .title {{ font-size: 20px; }}
-               .content {{ margin: 20px; }}
-         </style>
-      </head>
-      <body>
-         <h1 class="title">FocusEd Lesson Observation</h1>
-         <div class="content">
-               <p><strong>Teacher:</strong> {observation.Observation_Teacher}</p>+
-               
-               <p><strong>Date:</strong> {observation.Observation_Date}</p>
-               <p><strong>Class:</strong> {observation.Observation_Class}</p>
-               <p><strong>Focus Area:</strong> {observation.Observation_Focus}</p>
-               <p><strong>Strengths:</strong> {observation.Observation_Strengths}</p>
-               <p><strong>Areas for Development:</strong> {observation.Observation_Weaknesses}</p>
-               <p><strong>Other Comments:</strong> {observation.Observation_Comments}</p>
-         </div>
-      </body>
-   </html>
-   """
-    
-   # EN: Generate the PDF / BR: Gerar arquivo pdf
-   pdf = HTML(string=html_content).write_pdf()
+    # EN: Download the PDF of an observation / BR: Baixar observação como arquivo PDF
+    observation, teacher = (
+    db.query(Observation, User)
+    .join(User, Observation.Observation_Teacher == User.User_ID)
+    .filter(Observation.Observation_ID == id)
+    .first()
+)
 
-   pdf_stream = BytesIO(pdf)
-   pdf_stream.seek(0)
+    if observation is None:
+        raise HTTPException(status_code=404, detail="Observation not found")
 
-   # EN: Return PDF as a downloadable file / BR: Retorna o PDF como um arquivo para download
-   return StreamingResponse(pdf_stream, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=observation_{id}.pdf"})
+    # EN: Generate HTML content for the PDF / BR: Gerar conteúdo HTML para o PDF
+    teacher_full_name = f"{teacher.User_Forename} {teacher.User_Surname}"
+
+    html_content = f"""
+    <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; }}
+                .title {{ font-size: 20px; }}
+                .content {{ margin: 20px; }}
+            </style>
+        </head>
+        <body>
+            <h1 class="title">FocusEd Lesson Observation</h1>
+            <div class="content">
+                <p><strong>Teacher:</strong> {teacher_full_name}</p>
+                <p><strong>Date:</strong> {observation.Observation_Date}</p>
+                <p><strong>Class:</strong> {observation.Observation_Class}</p>
+                <p><strong>Focus Area:</strong> {observation.Observation_Focus}</p>
+                <p><strong>Strengths:</strong> {observation.Observation_Strengths}</p>
+                <p><strong>Areas for Development:</strong> {observation.Observation_Weaknesses}</p>
+                <p><strong>Other Comments:</strong> {observation.Observation_Comments}</p>
+            </div>
+        </body>
+    </html>
+    """
+
+    # EN: Generate the PDF / BR: Gerar o PDF
+    pdf = HTML(string=html_content).write_pdf()
+
+    pdf_stream = BytesIO(pdf)
+    pdf_stream.seek(0)
+
+    # EN: Return PDF as a downloadable file / BR: Retorna o PDF como um arquivo para download
+    return StreamingResponse(
+        pdf_stream,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=observation_{id}.pdf"}
+    )
 
 from fastapi import HTTPException
 
