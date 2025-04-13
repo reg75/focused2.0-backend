@@ -42,6 +42,8 @@ async def read_index():
 
 from fastapi.responses import FileResponse
 
+# EN: Serves the frontend HTML page containing the form for creating a new lesson observation
+# BR: Serve a página HTML do frontend que contém o formulário para criar uma nova observação de aula
 @app.get("/new_observation", response_class=FileResponse)
 async def serve_new_observation():
     return FileResponse(os.path.join(frontend_path, "index.html"))

@@ -92,7 +92,7 @@ async def create_pdf(id: int, db: Session = Depends(get_db)):
    if observation is None:
       raise HTTPException(status_code=404, detail="Observation not found")
     
-   # EN: Generate HTML content for the PDF / Gerar contenudo HTML
+   # EN: Generate HTML content for the PDF / BR: Gerar contenudo HTML
    html_content = f"""
    <html>
       <head>
@@ -118,13 +118,13 @@ async def create_pdf(id: int, db: Session = Depends(get_db)):
    </html>
    """
     
-   # Generate the PDF / Gerar arquivo pdf
+   # EN: Generate the PDF / BR: Gerar arquivo pdf
    pdf = HTML(string=html_content).write_pdf()
 
    pdf_stream = BytesIO(pdf)
    pdf_stream.seek(0)
 
-   # EN: Return the PDF as a downloadable file using StreamingResponse / BR: Retorna o PDF como um arquivo para download usando StreamingResponse
+   # EN: Return PDF as a downloadable file / BR: Retorna o PDF como um arquivo para download
    return StreamingResponse(pdf_stream, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=observation_{id}.pdf"})
 
 from fastapi import HTTPException
@@ -135,12 +135,12 @@ def fetch_teachers(db: Session = Depends(get_db)):
     # BR: Buscar todos os professores no banco de dados, ordenados por sobrenome
     teachers = db.query(User).order_by(User.User_Surname).all()
 
-    # EN: Raise an error if no teachers are found
+    # EN: Raise error if no teachers are found
     # BR: Gerar um erro se nenhum professor for encontrado
     if not teachers:
         raise HTTPException(status_code=404, detail="No teachers found")
 
-    # EN: Return a list of teachers
+    # EN: Return list of teachers
     # BR: Retornar uma lista de professores
     return [
         Teachers_List(
