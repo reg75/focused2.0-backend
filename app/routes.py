@@ -3,7 +3,9 @@ from fastapi.responses import StreamingResponse
 from weasyprint import HTML
 from io import BytesIO
 from typing import List
-from sqlalchemy.orm import Session
+from sqlalchemy import desc
+from sqlalchemy.orm import Session, joinedload
+
 from .models import Observation, User
 from .database import get_db
 from .schemas import Create_Observation, Observations_List, Teachers_List
@@ -15,27 +17,34 @@ router = APIRouter()
 def fetch_observations(db: Session = Depends(get_db)):
    # EN: Fetch all observations and join with Users to get teacher information
    # BR: Buscar todas as observações e juntar com os usuários para pegar as informações dos professores
-   observations = db.query(Observation).join(User, Observation.Observation_Teacher == User.User_ID).all()
-
-   # EN: Return a message if there are no observations
-   # BR: Retorna uma mensagem se não houver observações
-   if not observations: 
-      return {"message": "No observations yet!"}
-
-   # EN: Return the observations with teacher names
-   # BR: Retorna as observações com os nomes dos professores
-   return [
-      Observations_List(
-         Observation_ID=observation.Observation_ID,
-         Observation_Date=observation.Observation_Date,
-         Teacher_Forename=observation.teacher.User_Forename,
-         Teacher_Surname=observation.teacher.User_Surname,
-         Observation_Class=observation.Observation_Class,
-         Observation_Focus=observation.Observation_Focus,
-         Observation_Strengths=observation.Observation_Strengths,
-         Observation_Weaknesses=observation.Observation_Weaknesses,
-         Observation_Comments=observation.Observation_Comments,
+    observations = (
+        db.query(Observation)
+        .options(
+        joinedload(Observation.teacher),
+        joinedload(Observation.department),
+        joinedload(Observation.focus),
+        )
+        .order_by(desc(Observation.Observation_Date))
+        .all()
     )
+
+    # EN: Return a message if there are no observations
+    # BR: Retorna uma mensagem se não houver observações
+    if not observations: 
+        return []
+
+    # EN: Return the observations with teacher names
+    # BR: Retorna as observações com os nomes dos professores
+    return [
+        Observations_List(
+            Observation_ID=observation.Observation_ID,
+            Observation_Date=observation.Observation_Date,
+            Teacher_Forename=observation.teacher.User_Forename,
+            Teacher_Surname=observation.teacher.User_Surname,
+            Observation_Class=observation.Observation_Class,
+            Observation_Department=observation.department.Department_Name,
+            Observation_Focus=observation.focus.FocusArea_Name,
+        )
     for observation in observations
 ]
 
