@@ -61,7 +61,7 @@ class Flag(Base):
     flag_type = relationship("FlagType", backref="flags")
     FocusArea = Column(Integer, ForeignKey("FocusAreas.FocusArea_ID"), nullable=False, index=True)
     focus = relationship("FocusArea", backref="flags")
-    Is_Active = Column(Boolean, nullable=False, default=True)
+    Is_Open = Column(Boolean, nullable=False, default=True)
 
 # Creates initial list of users / teachers
 # Cria lista inicial de usuários / professores

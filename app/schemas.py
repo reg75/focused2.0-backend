@@ -7,7 +7,7 @@ class ORMModel(BaseModel):
 
 # EN: Schema for creating new observation via API
 # BR: Esquema para criar uma nova observação através da API
-class Create_Observation(BaseModel):
+class Create_Observation(ORMModel):
 
    Observation_Teacher: int 
    Observation_Department: int
@@ -19,24 +19,24 @@ class Create_Observation(BaseModel):
 
 # EN: Schema for creating list of observations via API  
 # BR: Esquema para criar lista de observações via API
-class Observations_List(BaseModel):
+class Observations_List(ORMModel):
    Observation_ID: int
    Observation_Date: datetime
    Teacher_Forename: Optional[str] = None
    Teacher_Surname: Optional[str] = None
    Observation_Class: str
-   Observation_Department: int
-   Observation_Focus: int
+   Observation_Department: str
+   Observation_Focus: str
    
 # EN: Schema for returning list of departments  
 # BR: Esquema para retornar uma lista de departamentos
-class Departments_List(BaseModel):
+class Departments_List(ORMModel):
    Department_ID: int
    Department_Name: str
    
 # EN: Schema for returning list of teachers  
 # BR: Esquema para retornar uma lista de professores
-class Teachers_List(BaseModel):
+class Teachers_List(ORMModel):
    User_ID: int
    Teacher_Forename: str
    Teacher_Surname: str
@@ -44,13 +44,29 @@ class Teachers_List(BaseModel):
    
 # EN: Schema for returning list of focus areas  
 # BR: Esquema para retornar uma lista de focos
-class FocusAreas_List(BaseModel):
+class FocusAreas_List(ORMModel):
    FocusArea_ID: int
    FocusArea_Name: str
    
 # EN: Schema for returning list of flag types  
 # BR: Esquema para retornar uma lista de tipos de indicador
-class FlagTypes_List(BaseModel):
+class FlagTypes_List(ORMModel):
    FlagType_ID: int
    FlagType_Name: str
-   
+
+# EN: Schema for creating a new flag  
+# BR: Esquema para criar um novo indicador
+class Create_Flag(ORMModel):
+   Observation: int
+   FlagType: int
+   FocusArea: int
+   Is_Open: bool = True
+
+class Flags_List(ORMModel):
+   Flag_ID: int
+   Teacher: str
+   Focus_Area: str
+   Flag_Date: datetime
+   Is_Open: bool
+
+
