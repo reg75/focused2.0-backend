@@ -17,6 +17,18 @@ class Create_Observation(ORMModel):
    Observation_Weaknesses: Optional[str] = None
    Observation_Comments: Optional[str] = None
 
+# EN: Schema for updating an observation via API
+# BR: Esquema para atualizar uma observação através da API
+class Update_Observation(ORMModel):
+
+   Observation_Department: int | None
+   Observation_Class: str | None
+   Observation_Focus: int  | None
+   Observation_Strengths: str | None
+   Observation_Weaknesses: str | None
+   Observation_Comments: str | None
+
+
 # EN: Schema for creating list of observations via API  
 # BR: Esquema para criar lista de observações via API
 class Observations_List(ORMModel):

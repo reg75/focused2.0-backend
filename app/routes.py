@@ -1,32 +1,55 @@
+import os
+from io import BytesIO
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from weasyprint import HTML
-from io import BytesIO
 from typing import List
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
 
 from .models import Observation, User
 from .database import get_db
-from .schemas import Create_Observation, Observations_List, Teachers_List
-import os
+from .schemas import Create_Observation, Observations_List, Teachers_List, Update_Observation
+
 
 router = APIRouter()
 
 @router.get("/observations", response_model=List[Observations_List])
-def fetch_observations(db: Session = Depends(get_db)):
+def fetch_observations(
+    teacher_id: Optional[int] = Query(None, ge=1),
+    department_id: Optional[int] = Query(None, ge=1),
+    focus_area_id: Optional[int] = Query(None, ge=1),
+    db: Session = Depends(get_db),
+):
    # EN: Fetch all observations and join with Users to get teacher information
    # BR: Buscar todas as observações e juntar com os usuários para pegar as informações dos professores
-    observations = (
+    q = (
         db.query(Observation)
         .options(
         joinedload(Observation.teacher),
         joinedload(Observation.department),
         joinedload(Observation.focus),
         )
-        .order_by(desc(Observation.Observation_Date))
-        .all()
+        
     )
+
+    # EN: Allows observations to be filtered
+    # BR: 
+    filters = []
+    
+    if teacher_id is not None:
+        filters.append(Observation.Observation_Teacher == teacher_id)
+    if department_id is not None:
+        filters.append(Observation.Observation_Department == department_id)
+    if focus_area_id is not None:
+        filters.append(Observation.Observation_Focus == focus_area_id)
+        
+    if filters:
+        q = q.filter(*filters)
+
+    observations = q.order_by(desc(Observation.Observation_Date)).all()
+
 
     # EN: Return a message if there are no observations
     # BR: Retorna uma mensagem se não houver observações
@@ -48,7 +71,6 @@ def fetch_observations(db: Session = Depends(get_db)):
     for observation in observations
 ]
 
-
 @router.post("/new")
 def create_observation(observation: Create_Observation, db: Session = Depends(get_db)):
    # EN: Create a new observation
@@ -59,7 +81,7 @@ def create_observation(observation: Create_Observation, db: Session = Depends(ge
    db.refresh(new_observation)
    return {"id": new_observation.Observation_ID}  
 
-@router.get("/view/{observation_ID}")
+@router.get("/observations/{observation_ID}")
 def view_observation(observation_ID: int, db: Session = Depends(get_db)):
    # EN: View the details of an observation
    # BR: Visualizar os detalhes de uma observação
@@ -74,12 +96,55 @@ def view_observation(observation_ID: int, db: Session = Depends(get_db)):
       "Teacher_Forename": observation.teacher.User_Forename,
       "Teacher_Surname": observation.teacher.User_Surname,
       "Observation_Class": observation.Observation_Class,
-      "Observation_Focus": observation.Observation_Focus,
+      "Observation_Focus": observation.focus.FocusArea_Name,
       "Observation_Strengths": observation.Observation_Strengths,
       "Observation_Weaknesses": observation.Observation_Weaknesses,
       "Observation_Comments": observation.Observation_Comments,
    }
 
+@router.put("/observations/{observation_ID}")
+def edit_observation(
+    observation_ID: int,
+    changes: Update_Observation,
+    db: Session = Depends(get_db),
+    ):
+   
+    observation = db.query(Observation).options(
+        joinedload(Observation.teacher),
+        joinedload(Observation.department),
+        joinedload(Observation.focus),  
+    ).filter(
+      Observation.Observation_ID == observation_ID).first()
+
+    if not observation:
+        raise HTTPException(status_code=404, detail="Observation not found.")
+      
+    if all(
+        getattr(changes, field) is None
+            for field in [
+                "Observation_Department",
+                "Observation_Class",
+                "Observation_Focus",
+                "Observation_Strengths",
+                "Observation_Weaknesses",
+                "Observation_Comments",
+            ]
+    ):
+        raise HTTPException(status_code=400, detail="Nothing to update")
+
+    update_data = changes.model_dump(exclude_unset=True)
+
+    if "Observation_Department" in update_data:
+        observation.Department_ID = update_data["Observation_Department"]
+    if "Observation_Focus" in update_data:
+        observation.FocusArea_ID = update_data["Observation_Focus"]
+
+    for field in ["Observation_Class", "Observation_Strengths", "Observation_Weaknesses", "Observation_Comments"]:
+        if field in update_data:
+            setattr(observation, field, update_data[field])
+
+    db.commit()
+    db.refresh(observation)
 
 @router.delete("/observations/{observation_id}")
 def delete_observation(observation_id: int, db: Session = Depends(get_db)):
@@ -166,6 +231,7 @@ def fetch_teachers(db: Session = Depends(get_db)):
             User_ID=teacher.User_ID,
             Teacher_Forename=teacher.User_Forename,
             Teacher_Surname=teacher.User_Surname,
+            Teacher_Email=teacher.User_Email,
         )
         for teacher in teachers
     ]
