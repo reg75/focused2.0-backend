@@ -80,14 +80,14 @@ def create_initial_data(session):
 
     if session.query(User).count() == 0:
         users = [
-            User(User_Forename="Chloe", User_Surname="Chen", User_Email="chloe@myschool.co.uk"),
-            User(User_Forename="Colleen", User_Surname="Murphy", User_Email="colleen@myschool.co.uk"),
-            User(User_Forename="Peter", User_Surname="Robinson", User_Email="peter@myschool.co.uk"),
-            User(User_Forename="Laura", User_Surname="Williams", User_Email="laura@myschool.co.uk"),
-            User(User_Forename="Steven", User_Surname="Ingram", User_Email="steven@myschool.co.uk"),
-            User(User_Forename="Anna", User_Surname="Masters", User_Email="anna@myschool.co.uk"),
-            User(User_Forename="Taissa", User_Surname="Hubbard", User_Email="taissa@myschool.co.uk"),
-            User(User_Forename="Sally", User_Surname="Mannon", User_Email="sally@myschool.co.uk"),
+            User(User_Forename="Chloe", User_Surname="Chen", User_Email="paul_m_regnier@yahoo.com"),
+            User(User_Forename="Colleen", User_Surname="Murphy", User_Email="focused-app.user2@mailbox.cc"),
+            User(User_Forename="Peter", User_Surname="Robinson", User_Email="focused-app.user3@mailbox.cc"),
+            User(User_Forename="Laura", User_Surname="Williams", User_Email="focused-app.user4@mailbox.cc"),
+            User(User_Forename="Steven", User_Surname="Ingram", User_Email="focused-app.user5@mailbox.cc"),
+            User(User_Forename="Anna", User_Surname="Masters", User_Email="focused-app.user6@mailbox.cc"),
+            User(User_Forename="Taissa", User_Surname="Hubbard", User_Email="focused-app.user7@mailbox.cc"),
+            User(User_Forename="Sally", User_Surname="Mannon", User_Email="focused-app.user8@mailbox.cc"),
         ]
     
         session.add_all(users)
