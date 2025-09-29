@@ -21,13 +21,17 @@ class Create_Observation(ORMModel):
 # BR: Esquema para atualizar uma observação através da API
 class Update_Observation(ORMModel):
 
-   Observation_Department: int | None
-   Observation_Class: str | None
-   Observation_Focus: int  | None
-   Observation_Strengths: str | None
-   Observation_Weaknesses: str | None
-   Observation_Comments: str | None
+   Observation_Teacher: int | None = None
+   Observation_Department: int | None = None
+   Observation_Class: str | None = None
+   Observation_Focus: int  | None = None
+   Observation_Strengths: str | None = None
+   Observation_Weaknesses: str | None = None
+   Observation_Comments: str | None = None
 
+# EN: If true, backend will re-send the PDF email after saving
+# BR: Se verdadeiro, backend reenviará o PDF por email após salvar
+   resend_email: bool | None = False
 
 # EN: Schema for creating list of observations via API  
 # BR: Esquema para criar lista de observações via API

@@ -205,11 +205,10 @@ def send_observation_email(
     return {"message": "Email queued"}
 
 
-# EN: ---- View a single observation ---- / BR: ---- Visualizar uma observação ----
+# EN: View a single observation / BR: Visualizar uma observação
 @router.get("/observations/{observation_ID}")
 def view_observation(observation_ID: int, db: Session = Depends(get_db)):
-    # EN: View the details of an observation / BR: Visualizar os detalhes de uma observação
-    observation = (
+    obs = (
         db.query(Observation)
         .options(
             joinedload(Observation.teacher),
@@ -219,33 +218,44 @@ def view_observation(observation_ID: int, db: Session = Depends(get_db)):
         .filter(Observation.Observation_ID == observation_ID)
         .first()
     )
-
-    if not observation:
+    if not obs:
         raise HTTPException(status_code=404, detail="Observation not found")
 
-    teacher = getattr(observation, "teacher", None)
-    dept = getattr(observation, "department", None)
-    focus = getattr(observation, "focus", None)
+    t = getattr(obs, "teacher", None)
+    d = getattr(obs, "department", None)
+    f = getattr(obs, "focus", None)
 
     return {
-        "Observation_ID": observation.Observation_ID,
-        "Observation_Date": observation.Observation_Date,
-        "Teacher_Forename": getattr(teacher, "User_Forename", None),
-        "Teacher_Surname": getattr(teacher, "User_Surname", None),
-        "Observation_Class": observation.Observation_Class,
-        "Observation_Department": getattr(dept, "Department_Name", None),
-        "Observation_Focus": getattr(focus, "FocusArea_Name", None),
-        "Observation_Strengths": observation.Observation_Strengths,
-        "Observation_Weaknesses": observation.Observation_Weaknesses,
-        "Observation_Comments": observation.Observation_Comments,
+        "Observation_ID": obs.Observation_ID,
+        "Observation_Date": obs.Observation_Date.isoformat() if obs.Observation_Date else None,
+        "Observation_Class": obs.Observation_Class,
+        "Observation_Strengths": obs.Observation_Strengths,
+        "Observation_Weaknesses": obs.Observation_Weaknesses,
+        "Observation_Comments": obs.Observation_Comments,
+
+        # ✅ IDs (what the edit form must POST/PUT back)
+        "Observation_Teacher": getattr(t, "User_ID", None),
+        "Observation_Department": getattr(d, "Department_ID", None),
+        "Observation_Focus": getattr(f, "FocusArea_ID", None),
+
+        # ✅ Friendly names (nice for UI display)
+        "Teacher_Forename": getattr(t, "User_Forename", None),
+        "Teacher_Surname": getattr(t, "User_Surname", None),
+        "Teacher_FullName": (
+            f"{getattr(t,'User_Forename','')} {getattr(t,'User_Surname','')}".strip() if t else None
+        ),
+        "Department_Name": getattr(d, "Department_Name", None),
+        "Focus_Name": getattr(f, "FocusArea_Name", None),
     }
 
 
-# EN: ---- Edit observation ---- / BR: ---- Editar observação ----
+# EN: Edit observation (with optional re-send) / BR: Editar observação (com reenvio opcional)
 @router.put("/observations/{observation_ID}")
 def edit_observation(
     observation_ID: int,
     changes: Update_Observation,
+    bg: BackgroundTasks,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     observation = (
@@ -258,14 +268,14 @@ def edit_observation(
         .filter(Observation.Observation_ID == observation_ID)
         .first()
     )
-
     if not observation:
         raise HTTPException(status_code=404, detail="Observation not found.")
 
-    # EN: Guard: nothing to update / BR: Guarda: nada para atualizar
-    if all(
+    # EN: If user only wants to re-send, allow it (no 400) / BR: Permitir reenvio sem mudanças
+    nothing_to_update = all(
         getattr(changes, field) is None
         for field in [
+            "Observation_Teacher",
             "Observation_Department",
             "Observation_Class",
             "Observation_Focus",
@@ -273,12 +283,17 @@ def edit_observation(
             "Observation_Weaknesses",
             "Observation_Comments",
         ]
-    ):
+    )
+    if nothing_to_update and not changes.resend_email:
         raise HTTPException(status_code=400, detail="Nothing to update")
 
+    # EN: Dict of provided fields only / BR: Apenas campos enviados
     update_data = changes.model_dump(exclude_unset=True)
+    update_data.pop("resend_email", None)
 
-    # EN: Update FKs to the *correct* columns on Observation / BR: Atualizar FKs nas colunas *corretas* de Observation
+    # EN: Foreign keys first / BR: Chaves estrangeiras primeiro
+    if "Observation_Teacher" in update_data:
+        observation.Observation_Teacher = update_data["Observation_Teacher"]
     if "Observation_Department" in update_data:
         observation.Observation_Department = update_data["Observation_Department"]
     if "Observation_Focus" in update_data:
@@ -290,12 +305,30 @@ def edit_observation(
             setattr(observation, field, update_data[field])
 
     db.commit()
-    db.refresh(observation)
+
+    # EN: If re-sending, ensure relationships reflect any FK changes / BR: Recarregar relações
+    if changes.resend_email:
+        # simplest: re-query with joinedload so teacher/department/focus are fresh
+        observation = (
+            db.query(Observation)
+            .options(
+                joinedload(Observation.teacher),
+                joinedload(Observation.department),
+                joinedload(Observation.focus),
+            )
+            .filter(Observation.Observation_ID == observation_ID)
+            .first()
+        )
+
+        teacher = getattr(observation, "teacher", None)
+        dept = getattr(observation, "department", None)
+        focus = getattr(observation, "focus", None)
+        payload = _build_mail_payload(request, observation, teacher, dept, focus)
+        _queue_email(bg, payload)
 
     return {"message": "Observation updated", "Observation_ID": observation.Observation_ID}
 
-
-# EN: ---- Delete observation ---- / BR: ---- Apagar observação ----
+# EN: Delete observation / BR: Apagar observação
 @router.delete("/observations/{observation_id}")
 def delete_observation(observation_id: int, db: Session = Depends(get_db)):
     observation = db.query(Observation).filter(Observation.Observation_ID == observation_id).first()
