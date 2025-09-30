@@ -43,6 +43,7 @@ class Observation(Base):
     Observation_Weaknesses = Column(String(1000))
     Observation_Comments = Column(String(1000))
 
+# EN: Not used in MVP / não usado no MVP
 class FlagType(Base):
     # EN: Creates FlagTypes table
     # BR: Cria tabela 'FlagTypes' (tipos de indicador)
@@ -50,6 +51,7 @@ class FlagType(Base):
     FlagType_ID = Column(Integer, primary_key=True, index=True, autoincrement=True)
     FlagType_Name = Column(String(64), unique=True, nullable=False)
 
+# EN: Not used in MVP / não usado no MVP
 class Flag(Base):
     # EN: Creates Flags table
     # BR: Cria tabela 'Flags' (indicadores)
@@ -80,7 +82,7 @@ def create_initial_data(session):
 
     if session.query(User).count() == 0:
         users = [
-            User(User_Forename="Chloe", User_Surname="Chen", User_Email="paul_m_regnier@yahoo.com"),
+            User(User_Forename="Chloe", User_Surname="Chen", User_Email="focused-app.user1@mailbox.cc"),
             User(User_Forename="Colleen", User_Surname="Murphy", User_Email="focused-app.user2@mailbox.cc"),
             User(User_Forename="Peter", User_Surname="Robinson", User_Email="focused-app.user3@mailbox.cc"),
             User(User_Forename="Laura", User_Surname="Williams", User_Email="focused-app.user4@mailbox.cc"),

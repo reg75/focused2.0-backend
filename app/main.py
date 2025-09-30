@@ -19,6 +19,11 @@ print(f"Calculated Frontend directory path: {FRONTEND_PATH}")
 
 app = FastAPI()
 
+# EN: Health endpoint for Docker healthcheck / BR: Endpoint de saúde para o Docker
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 # EN: Load .env early (once)
 # BR: Carregar .env cedo (uma vez)
 try:

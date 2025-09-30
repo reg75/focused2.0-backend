@@ -1,14 +1,14 @@
 # EN: Load .env early once / BR: Carregar .env cedo e uma única vez
 import os
+import httpx
 
 from io import BytesIO
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request, status, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
-from weasyprint import HTML
 
 from .models import Observation, User, Department, FocusArea
 from .database import get_db
@@ -23,6 +23,7 @@ from .schemas import (
 from .mailer_client import notify_observation
 
 router = APIRouter()
+RENDERER_URL = os.getenv("RENDERER_URL", "http://renderer:8002")
 
 
 # EN: ---- Helpers (internal) ---- / BR: ---- Auxiliares (internos) ----
@@ -340,65 +341,69 @@ def delete_observation(observation_id: int, db: Session = Depends(get_db)):
     return {"message": "Observation deleted successfully"}
 
 
-# EN: ---- Generate PDF ---- / BR: ---- Gerar PDF ----
+# EN: Generate PDF via renderer / BR: Gerar PDF via renderer
 @router.get("/pdf/{id}")
 async def create_pdf(id: int, db: Session = Depends(get_db)):
-    # EN: Download the PDF of an observation / BR: Baixar observação como arquivo PDF
     observation = (
         db.query(Observation)
         .options(joinedload(Observation.teacher), joinedload(Observation.focus))
         .filter(Observation.Observation_ID == id)
         .first()
     )
-
     if observation is None:
         raise HTTPException(status_code=404, detail="Observation not found")
 
-    teacher = observation.teacher
-    focus = observation.focus
+    teacher = getattr(observation, "teacher", None)
+    focus   = getattr(observation, "focus", None)
 
-    # EN: Generate HTML content for the PDF / BR: Gerar conteúdo HTML para o PDF
     teacher_full_name = f"{getattr(teacher, 'User_Forename', '')} {getattr(teacher, 'User_Surname', '')}".strip()
-    focus_label = getattr(focus, "FocusArea_Name", None) or str(getattr(observation, "Observation_Focus", "—"))
+    focus_label = (
+        getattr(focus, "FocusArea_Name", None)
+        or str(getattr(observation, "Observation_Focus", "—"))
+    )
+    date_str = str(getattr(observation, "Observation_Date", "—"))
 
     html_content = f"""
-    <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; }}
-                .title {{ font-size: 20px; }}
-                .content {{ margin: 20px; }}
-            </style>
-        </head>
-        <body>
-            <h1 class="title">FocusEd Lesson Observation</h1>
-            <div class="content">
-                <p><strong>Teacher:</strong> {teacher_full_name or '—'}</p>
-                <p><strong>Date:</strong> {observation.Observation_Date}</p>
-                <p><strong>Class:</strong> {observation.Observation_Class or '—'}</p>
-                <p><strong>Focus Area:</strong> {focus_label}</p>
-                <p><strong>Strengths:</strong> {observation.Observation_Strengths or '—'}</p>
-                <p><strong>Areas for Development:</strong> {observation.Observation_Weaknesses or '—'}</p>
-                <p><strong>Other Comments:</strong> {observation.Observation_Comments or '—'}</p>
-            </div>
-        </body>
-    </html>
+    <!doctype html><meta charset="utf-8">
+    <style>
+      body {{ font-family: DejaVu Sans, Arial, sans-serif; margin: 2rem; }}
+      h1 {{ font-size: 22px; border-bottom: 1px solid #ccc; padding-bottom: .4rem; }}
+      .content p {{ margin: .4rem 0; }}
+      .label {{ font-weight: bold; }}
+    </style>
+    <h1>FocusEd Lesson Observation</h1>
+    <div class="content">
+      <p><span class="label">Teacher:</span> {teacher_full_name or '—'}</p>
+      <p><span class="label">Date:</span> {date_str}</p>
+      <p><span class="label">Class:</span> {observation.Observation_Class or '—'}</p>
+      <p><span class="label">Focus Area:</span> {focus_label}</p>
+      <p><span class="label">Strengths:</span> {observation.Observation_Strengths or '—'}</p>
+      <p><span class="label">Areas for Development:</span> {observation.Observation_Weaknesses or '—'}</p>
+      <p><span class="label">Other Comments:</span> {observation.Observation_Comments or '—'}</p>
+    </div>
     """
 
-    # EN: Generate the PDF / BR: Gerar o PDF
-    pdf = HTML(string=html_content).write_pdf()
-    pdf_stream = BytesIO(pdf)
-    pdf_stream.seek(0)
+    # Calls renderer / Chama renderer
+    render_endpoint = f"{RENDERER_URL}/render"
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(render_endpoint, json={"html": html_content})
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Renderer unreachable: {e}") from e
 
-    # EN: Return PDF as a downloadable file / BR: Retorna o PDF como um arquivo para download
-    return StreamingResponse(
-        pdf_stream,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=observation_{id}.pdf"}
-    )
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Renderer error (status {r.status_code})")
+
+    ctype = r.headers.get("content-type", "").lower()
+    if "application/pdf" not in ctype:
+        raise HTTPException(status_code=502, detail=f"Renderer returned non-PDF (content-type {ctype})")
+
+    filename = f"observation_{id}.pdf"
+    headers = {"Content-Disposition": f'inline; filename="{filename}"'}
+    return Response(content=r.content, media_type="application/pdf", headers=headers)
 
 
-# EN: ---- Teachers ---- / BR: ---- Professores ----
+# EN Teachers / BR: Professores
 @router.get("/teachers", response_model=List[Teachers_List])
 def fetch_teachers(db: Session = Depends(get_db)):
     # EN: Fetch all teachers from the database, ordered by surname
