@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import desc
 from sqlalchemy.orm import Session, joinedload
 
-from .models import Observation, User, Department, FocusArea
+from .models.models import Observation, User, Department, FocusArea
 from .database import get_db
 from .schemas import (
     Create_Observation,

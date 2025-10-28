@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 
 from .routes import router as api_router
 from .database import engine, SessionLocal
-from .models import Base, create_initial_data
+from .models.models import Base, create_initial_data
 
 # EN: Resolve project root and frontend path (../frontend)
 # BR: Resolver raiz do projeto e caminho do frontend (../frontend)
