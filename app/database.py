@@ -1,10 +1,11 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # EN: Database URL for SQLite
 # BR: URL do banco de dados para SQLite
-SQLALCHEMY_DATABASE_URL = "sqlite:///./focused.db"
+SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", "sqlite:///./focused.db")
 
 # EN: Create an engine for SQLite
 # BR: Crie um mecanismo para SQLite
